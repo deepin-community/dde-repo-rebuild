@@ -1,0 +1,5 @@
+#!/bin/bash
+
+if [ -f /var/lib/deepin/deepin_security_verify.whitelist ];then
+    chattr -i /var/lib/deepin/deepin_security_verify.whitelist
+fi

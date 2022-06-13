@@ -8,7 +8,6 @@ dde-grand-search
 dde-launcher
 dde-network-utils
 dde-polkit-agent
-dde-preload
 dde-qt-dbus-factory
 dde-session-shell
 dde-session-ui
@@ -20,7 +19,6 @@ deepin-gtk-theme
 deepin-icon-theme
 deepin-pw-check
 deepin-screensaver
-deepin-turbo
 deepin-wallpapers
 default-settings
 dtkcommon
