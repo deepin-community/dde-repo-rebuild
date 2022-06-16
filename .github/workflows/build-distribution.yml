@@ -28,7 +28,6 @@ jobs:
           done < "repos"
           echo "::set-output name=value::[$array]"
   Arch:
-    if: ${{ false }}
     container:
       image: archlinux:latest
       options: --privileged
@@ -70,32 +69,6 @@ jobs:
             chown -R user /home/user/$PKG
             cd /home/user/$PKG
               deepin-x86_64-build -- -U user
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ matrix.pkg }}
-          path: /home/user/${{ matrix.pkg }}/*.zst
-  Arch-Upload:
-    if: ${{ github.event_name == 'push' }}
-    needs: [ Arch ]
-    runs-on: ubuntu-latest
-    container:
-      image: archlinux:latest
-      options: --privileged
-      volumes:
-        - /sys/fs/cgroup:/sys/fs/cgroup
-        - /etc/machine-id:/etc/machine-id
-    steps:
-      - name: Init
-        run: |
-          pacman-key --init
-          pacman-key --populate
-          pacman-key -r AFAAFC4EF142770966FC4C805987B0C2A80EA669
-          pacman-key --lsign-key AFAAFC4EF142770966FC4C805987B0C2A80EA669
-          echo "[deepin]" >> /etc/pacman.conf
-          echo "SigLevel = Never" >> /etc/pacman.conf
-          echo "Server = https://arch.packages.mkacg.com" >> /etc/pacman.conf
-          pacman -Sy openssh devtools --noconfirm --noprogressbar --needed
       - name: Import GPG key
         id: import_gpg
         uses: crazy-max/ghaction-import-gpg@v4
@@ -132,17 +105,14 @@ jobs:
             fi
             break
           done
-      - name: Download all packages
-        uses: actions/download-artifact@v3
-        with:
-          path: ./pkgs
       - name: Upload packages
         run: |
-          find pkgs -name "*.zst" | xargs -I {} gpg --detach-sign --default-key builder {}
+
+          find /home/user/${{ matrix.pkg }} -name "*.zst" | xargs -I {} gpg --detach-sign --default-key builder {}
           git clone git@github.com:deepin-community/arch-dde-repo.git
-          cp pkgs/**/*.zst arch-dde-repo
-          cp pkgs/**/*.sig arch-dde-repo
-          for p in `ls pkgs/**/*.zst`;
+          cp /home/user/${{ matrix.pkg }}/*.sig arch-dde-repo
+          cp /home/user/${{ matrix.pkg }}/*.zst arch-dde-repo
+          for p in `ls /home/user/${{ matrix.pkg }}/*.zst`;
           do
             pkg=$(echo $p | awk -F. '{print $1}' | sed 's/-1//')
             repo-add -p -R arch-dde-repo/deepin.db.tar.xz $p
@@ -160,10 +130,8 @@ jobs:
             rm -rf lock
             git push -f
           fi
-      - name: wait for repo deploy
-        run: |
-          sleep 120
   Debian:
+    if: ${{ false }}
     needs: [ setup ]
     continue-on-error: true
     strategy:
@@ -313,6 +281,7 @@ jobs:
           rm -rf lock
           git push -f
   Deepin-Setup:
+    if: ${{ false }}
     needs: [ setup ]
     strategy:
       matrix:
