@@ -36,6 +36,7 @@ go-dbus-factory
 go-gir-generator
 go-lib
 go-x11-client
+lastore-daemon
 qt5integration
 qt5platform-plugins
 startdde
