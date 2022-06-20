@@ -4,7 +4,9 @@ dde-clipboard
 dde-control-center
 dde-daemon
 dde-dock
+dde-file-manager
 dde-grand-search
+dde-kwin
 dde-launcher
 dde-network-utils
 dde-polkit-agent
@@ -20,6 +22,8 @@ deepin-desktop-schemas
 deepin-gettext-tools
 deepin-gtk-theme
 deepin-icon-theme
+deepin-keyring
+deepin-movie
 deepin-network-proxy
 deepin-pw-check
 deepin-screensaver
@@ -27,6 +31,8 @@ deepin-sound-theme
 deepin-turbo
 deepin-wallpapers
 default-settings
+disomaster
+docparser
 dpa-ext-gnomekeyring
 dtkcommon
 dtkcore
