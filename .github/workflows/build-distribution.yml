@@ -27,7 +27,7 @@ jobs:
             fi
           done < "repos"
           echo "::set-output name=value::[$array]"
-  Arch:
+  archlinux:
     container:
       image: archlinux:latest
       options: --privileged
@@ -158,7 +158,7 @@ jobs:
             rm -rf lock
             git push -f
           fi
-  Debian:
+  debian:
     if: ${{ false }}
     needs: [ setup ]
     continue-on-error: true
@@ -240,8 +240,8 @@ jobs:
         with:
           name: Debian
           path: ~/deb-${{ matrix.os }}/*
-  Debian-Upload:
-    needs: [ Debian ]
+  debian-upload:
+    needs: [ debian ]
     runs-on: ubuntu-latest
     steps:
       - uses: webfactory/ssh-agent@v0.5.4
@@ -308,7 +308,7 @@ jobs:
           git reset HEAD^
           rm -rf lock
           git push -f
-  Deepin-Setup:
+  deepin-setup:
     if: ${{ false }}
     needs: [ setup ]
     strategy:
@@ -350,8 +350,8 @@ jobs:
           mv buster.z08.zip buster.z08
           7z x buster.zip
           mv buster.tgz ~/${{ matrix.os }}-base-amd64.tgz
-  Deepin:
-    needs: [ Deepin-Setup, setup ]
+  deepin:
+    needs: [ deepin-setup, setup ]
     continue-on-error: true
     strategy:
       matrix:
@@ -435,8 +435,8 @@ jobs:
         with:
           name: Deepin
           path: ~/deb-${{ matrix.os }}/*
-  Deepin-Upload:
-    needs: [ Deepin ]
+  deepin-upload:
+    needs: [ deepin ]
     runs-on: ubuntu-latest
     steps:
       - uses: webfactory/ssh-agent@v0.5.4
