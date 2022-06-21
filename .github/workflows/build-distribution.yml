@@ -92,7 +92,7 @@ jobs:
           sed -i "s|MAKEFLAGS=.*|MAKEFLAGS=-j$(nproc)|" /etc/makepkg.conf
           useradd -m user
           mkdir /home/user/${PKG}
-          rsync -a archlinux /home/user/${PKG}
+          rsync -a archlinux/* /home/user/${PKG}
           chown -R user /home/user/${PKG}
           cd /home/user/${PKG}
               updpkgsums
