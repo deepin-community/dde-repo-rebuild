@@ -91,9 +91,11 @@ jobs:
           sed -i "/pkgver=/cpkgver=${version}" archlinux/PKGBUILD
           sed -i "s|MAKEFLAGS=.*|MAKEFLAGS=-j$(nproc)|" /etc/makepkg.conf
           useradd -m user
-          rsync -a archlinux /home/user/
-          chown -R user /home/user/archlinux
-          cd /home/user/archlinux
+          mkdir /home/user/${PKG}
+          rsync -a archlinux /home/user/${PKG}
+          chown -R user /home/user/${PKG}
+          cd /home/user/${PKG}
+              updpkgsums
               deepin-x86_64-build -- -U user
       - name: Import GPG key
         id: import_gpg
