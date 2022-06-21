@@ -57,17 +57,43 @@ jobs:
           echo "SigLevel = Never" >> /etc/pacman.conf
           echo "Server = https://arch.packages.mkacg.com/" >> /etc/pacman.conf
           pacman -Sy deepin-keyring devtools-deepin-git base-devel --noconfirm --noprogressbar --needed
-      - name: Build
+      - name: Compress Source
         env:
           PKG: ${{ matrix.pkg }}
         run: |
+          git clone https://github.com/linuxdeepin/${PKG}
+          cd ${PKG}
+          mkdir ${PKG}-git
+          rsync -a . ${PKG}-git
+          rm -rf ${PKG}-git/archlinux
+          tar -czf archlinux/source.tar.gz ${PKG}-git
+          echo "deepin_source_name=${PKG}-git" >> archlinux/PKGBUILD
+      - name: Get package version
+        id: version
+        env:
+          sha: ${{ github.event.pull_request.head.sha }}
+          PKG: ${{ matrix.pkg }}
+        run: |
+          if [ "${sha}" == "" ]
+          then
+            echo "::set-output name=VERSION::1.0.0"
+          else
+            cd ${PKG}
+            version=${tag:-0.0.0}+r${num}+g$(git rev-parse --short HEAD)
+            echo "::set-output name=VERSION::${version}"
+          fi
+      - name: Build
+        env:
+          version: ${{ steps.version.outputs.VERSION }}
+          PKG: ${{ matrix.pkg }}
+        run: |
+          cd ${PKG}
+          sed -i "/pkgver=/cpkgver=${version}" archlinux/PKGBUILD
           sed -i "s|MAKEFLAGS=.*|MAKEFLAGS=-j$(nproc)|" /etc/makepkg.conf
           useradd -m user
-          git clone https://github.com/deepin-community/repo .repo
-          cd .repo/deepincn/git
-            cp -r $PKG /home/user
-            chown -R user /home/user/$PKG
-            cd /home/user/$PKG
+          rsync -a archlinux /home/user/
+          chown -R user /home/user/archlinux
+          cd /home/user/archlinux
               deepin-x86_64-build -- -U user
       - name: Import GPG key
         id: import_gpg
