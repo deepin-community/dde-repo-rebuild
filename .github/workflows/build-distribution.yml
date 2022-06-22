@@ -129,6 +129,7 @@ jobs:
           done
       - name: Upload packages
         run: |
+          sleep 10
           find /home/user/${{ matrix.pkg }} -name "*.zst" | xargs -I {} gpg --detach-sign --default-key builder {}
           git clone git@github.com:deepin-community/arch-dde-repo.git
           cp /home/user/${{ matrix.pkg }}/*.sig arch-dde-repo
