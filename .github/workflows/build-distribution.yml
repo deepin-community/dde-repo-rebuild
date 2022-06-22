@@ -129,21 +129,25 @@ jobs:
           done
       - name: Upload packages
         run: |
-          sleep 10
-          find /home/user/${{ matrix.pkg }} -name "*.zst" | xargs -I {} gpg --detach-sign --default-key builder {}
-          git clone git@github.com:deepin-community/arch-dde-repo.git
-          cp /home/user/${{ matrix.pkg }}/*.sig arch-dde-repo
-          cp /home/user/${{ matrix.pkg }}/*.zst arch-dde-repo
-          for p in `ls /home/user/${{ matrix.pkg }}/*.zst`;
+          for i in 1..3;
           do
-            pkg=$(echo $p | awk -F. '{print $1}' | sed 's/-1//')
-            repo-add -p -R arch-dde-repo/deepin.db.tar.xz $p
+            sleep 10
+            find /home/user/${{ matrix.pkg }} -name "*.zst" | xargs -I {} gpg --detach-sign --default-key builder {}
+            rm -rf arch-dde-repo
+            git clone git@github.com:deepin-community/arch-dde-repo.git
+            cp /home/user/${{ matrix.pkg }}/*.sig arch-dde-repo
+            cp /home/user/${{ matrix.pkg }}/*.zst arch-dde-repo
+            for p in `ls /home/user/${{ matrix.pkg }}/*.zst`;
+            do
+              pkg=$(echo $p | awk -F. '{print $1}' | sed 's/-1//')
+              repo-add -p -R arch-dde-repo/deepin.db.tar.xz $p
+            done
+            cd arch-dde-repo
+            git add .
+            git commit --amend --no-edit
+            git push -f || continue
+            break
           done
-          cd arch-dde-repo
-          git add .
-          git commit --amend --no-edit
-          git pull --rebase
-          git push -f
       - name: Unlock
         if: ${{ always() }}
         run: |
