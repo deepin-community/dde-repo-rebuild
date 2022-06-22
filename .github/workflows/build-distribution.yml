@@ -64,7 +64,7 @@ jobs:
           git clone https://github.com/linuxdeepin/${PKG}
           cd ${PKG}
           mkdir ${PKG}-git
-          rsync -a . ${PKG}-git
+          rsync -a . ${PKG}-git --exclude "${PKG}-git"
           rm -rf ${PKG}-git/archlinux
           tar -czf archlinux/source.tar.gz ${PKG}-git
           echo "deepin_source_name=${PKG}-git" >> archlinux/PKGBUILD
