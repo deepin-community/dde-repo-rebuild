@@ -142,6 +142,7 @@ jobs:
           cd arch-dde-repo
           git add .
           git commit --amend --no-edit
+          git pull --rebase
           git push -f
       - name: Unlock
         if: ${{ always() }}
