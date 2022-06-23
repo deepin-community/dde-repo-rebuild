@@ -13,9 +13,6 @@ dde-polkit-agent
 dde-qt-dbus-factory
 dde-session-shell
 dde-session-ui
-dde-wldpms
-dde-wloutput
-dde-wloutput-daemon
 deepin-anything
 deepin-desktop-base
 deepin-desktop-schemas
@@ -23,14 +20,13 @@ deepin-gettext-tools
 deepin-gtk-theme
 deepin-icon-theme
 deepin-keyring
-deepin-movie
+deepin-movie-reborn
 deepin-network-proxy
 deepin-pw-check
 deepin-screensaver
 deepin-sound-theme
 deepin-turbo
 deepin-wallpapers
-default-settings
 disomaster
 docparser
 dpa-ext-gnomekeyring
@@ -43,7 +39,6 @@ go-dbus-factory
 go-gir-generator
 go-lib
 go-x11-client
-lastore-daemon
 qt5integration
 qt5platform-plugins
 startdde
