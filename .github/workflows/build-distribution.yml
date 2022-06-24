@@ -79,6 +79,8 @@ jobs:
             echo "::set-output name=VERSION::1.0.0"
           else
             cd ${PKG}
+            tag=$(git describe --tags | cut -f1 -d '-') || echo
+            num=$(git describe --tags | cut -f2 -d '-') || echo
             version=${tag:-0.0.0}+r${num}+g$(git rev-parse --short HEAD)
             echo "::set-output name=VERSION::${version}"
           fi
