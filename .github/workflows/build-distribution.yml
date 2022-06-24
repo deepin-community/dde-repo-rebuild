@@ -158,7 +158,6 @@ jobs:
             git push -f
           fi
   debian:
-    if: ${{ false }}
     needs: [ setup ]
     continue-on-error: true
     strategy:
@@ -308,7 +307,6 @@ jobs:
           rm -rf lock
           git push -f
   deepin-setup:
-    if: ${{ false }}
     needs: [ setup ]
     strategy:
       matrix:
