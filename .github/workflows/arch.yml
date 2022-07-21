@@ -56,7 +56,7 @@ jobs:
           echo "[deepin]" >> /etc/pacman.conf
           echo "SigLevel = Never" >> /etc/pacman.conf
           echo "Server = https://arch.packages.mkacg.com/" >> /etc/pacman.conf
-          pacman -Sy deepin-keyring devtools-deepin-git base-devel --noconfirm --noprogressbar --needed
+          pacman -Sy deepin-keyring devtools-deepin-git base-devel ssh gnupg --noconfirm --noprogressbar --needed
       - name: Compress Source
         env:
           PKG: ${{ matrix.pkg }}
