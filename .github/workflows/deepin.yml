@@ -69,7 +69,7 @@ jobs:
           7z x buster.zip
           mv buster.tgz ~/${{ matrix.os }}-base-amd64.tgz
   build:
-    needs: [ init ]
+    needs: [ setup, init ]
     continue-on-error: true
     strategy:
       matrix:
