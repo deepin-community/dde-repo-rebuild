@@ -102,7 +102,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: arch
-          path: /home/user/${{ matrix.pkg }}
+          path: /home/user/${{ matrix.pkg }}/*.zst
   upload:
     needs: [ build ]
     container:
