@@ -98,6 +98,22 @@ jobs:
           chown -R user /home/user/${PKG}
           cd /home/user/${PKG}
               deepin-x86_64-build -- -U user
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Arch
+          path: /home/user/${{ matrix.pkg }}
+  archlinux-upload:
+    needs: [ archlinux ]
+    container:
+      image: archlinux:latest
+      options: --privileged
+      volumes:
+        - /sys/fs/cgroup:/sys/fs/cgroup
+        - /etc/machine-id:/etc/machine-id
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
       - name: Import GPG key
         id: import_gpg
         uses: crazy-max/ghaction-import-gpg@v4
@@ -162,6 +178,7 @@ jobs:
           fi
   debian:
     needs: [ setup ]
+    if: ${{ false }}
     continue-on-error: true
     strategy:
       matrix:
@@ -314,6 +331,7 @@ jobs:
           rm -rf lock
           git push -f
   deepin-setup:
+    if: ${{ false }}
     needs: [ setup ]
     strategy:
       matrix:
