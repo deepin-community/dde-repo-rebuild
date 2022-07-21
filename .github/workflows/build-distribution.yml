@@ -137,6 +137,7 @@ jobs:
             find /home/user/${{ matrix.pkg }} -name "*.zst" | xargs -I {} gpg --detach-sign --default-key builder {}
             rm -rf arch-dde-repo
             git clone git@github.com:deepin-community/arch-dde-repo.git
+            rm -rf arch-dde-repo/*
             cp /home/user/${{ matrix.pkg }}/*.sig arch-dde-repo
             cp /home/user/${{ matrix.pkg }}/*.zst arch-dde-repo
             for p in `ls /home/user/${{ matrix.pkg }}/*.zst`;
@@ -288,6 +289,10 @@ jobs:
       - name: Upload packages
         run: |
           git clone git@github.com:deepin-community/debian-sid-dde-repo.git
+          rm -rf debian-sid-dde-repo/dists
+          rm -rf debian-sid-dde-repo/pool
+          rm -rf debian-sid-dde-repo/db
+          rm -rf debian-sid-dde-repo/logs
           for deb in `ls deb/*.deb`
           do
               filename=$(echo $deb | awk -F/ '{print $2}')
@@ -481,6 +486,10 @@ jobs:
       - name: Upload packages
         run: |
           git clone git@github.com:deepin-community/deepin-dde-repo.git
+          rm -rf debian-sid-dde-repo/dists
+          rm -rf debian-sid-dde-repo/pool
+          rm -rf debian-sid-dde-repo/db
+          rm -rf debian-sid-dde-repo/logs
           for deb in `ls deb/*.deb`
           do
               filename=$(echo $deb | awk -F/ '{print $2}')
