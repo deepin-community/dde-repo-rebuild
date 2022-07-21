@@ -204,10 +204,10 @@ jobs:
           do
               filename=$(echo $deb | awk -F/ '{print $2}')
               packagename=$(echo $filename | awk -F_ '{print $1}')
-              reprepro -b deepin-dde-repo remove sid $packagename || true
+              reprepro -b deepin-dde-repo remove apricot $packagename || true
               find deepin-dde-repo -name $filename | xargs -I {} rm {} || true
           done
-          reprepro -b deepin-dde-repo -C main includedeb sid deb/*.deb
+          reprepro -b deepin-dde-repo -C main includedeb apricot deb/*.deb
           reprepro -b deepin-dde-repo export apricot
           cd deepin-dde-repo
           git add .
