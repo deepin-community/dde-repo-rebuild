@@ -125,11 +125,6 @@ jobs:
           ssh-private-key: ${{ secrets.BUILD_SSH_PRIVATE_KEY }}
       - run: git config --global user.email "ci@deepin.org"
       - run: git config --global user.name "deepin-ci"
-      - name: Download all packages
-        uses: actions/download-artifact@v3
-        with:
-          name: arch
-          path: ./arch
       - name: Lock Database
         id: lock
         run: |
@@ -150,26 +145,22 @@ jobs:
               break
             fi
           done
+      - name: Download all packages
+        uses: actions/download-artifact@v3
+        with:
+          name: arch
+          path: ./pkgs
       - name: Upload packages
         run: |
-          for i in 1..3;
-          do
-            sleep 10
-            find arch -name "*.zst" | xargs -I {} gpg --detach-sign --default-key builder {}
-            git clone git@github.com:deepin-community/arch-dde-repo.git
-            rm -rf arch-dde-repo/*
-            cp arch/* arch-dde-repo
-            for p in `ls arch/*.zst`;
-            do
-              pkg=$(echo $p | awk -F. '{print $1}' | sed 's/-1//')
-              repo-add -p -R arch-dde-repo/deepin.db.tar.xz $p
-            done
-            cd arch-dde-repo
-            git add .
-            git commit --amend --no-edit
-            git push -f || continue
-            break
-          done
+          find pkgs -name "*.zst" | xargs -I {} gpg --detach-sign --default-key builder {}
+          git clone git@github.com:deepin-community/arch-dde-repo.git
+          find pkgs -name "*.zst" | xargs -I {} cp {} arch-dde-repo
+          find pkgs -name "*.sig" | xargs -I {} cp {} arch-dde-repo
+          find pkgs -name "*.zst" | xargs -I {} repo-add -p -R arch-dde-repo/deepin.db.tar.xz {}
+          cd arch-dde-repo
+          git add .
+          git commit --amend --no-edit
+          git push -f
       - name: Unlock
         if: ${{ always() }}
         run: |
