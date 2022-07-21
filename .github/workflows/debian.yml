@@ -1,0 +1,183 @@
+name: Distribution Builder
+on:
+  push:
+env:
+  USER: root
+  LOGNAME: root
+jobs:
+  setup:
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.value }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
+      - id: matrix
+        name: Matrix
+        shell: bash
+        run: |
+          array=""
+          while IFS= read -r line
+          do
+            if [[ ! -n "$array" ]]
+            then
+              array='"'$line'"'
+            else
+              array=$array", "'"'$line'"'
+            fi
+          done < "repos"
+          echo "::set-output name=value::[$array]"
+  build:
+    needs: [ setup ]
+    continue-on-error: true
+    strategy:
+      matrix:
+        value: ${{fromJson(needs.setup.outputs.matrix)}}
+        os: ['sid']
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Init
+        run: |
+          echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections
+          sudo apt-get update
+          sudo apt-get install -y ca-certificates
+      - name: Cache
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: ~/${{ matrix.os }}-base-amd64.tgz
+          key: ${{ runner.os }}-primes
+      - name: Create base
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get -y install pbuilder debian-archive-keyring
+          sudo pbuilder create --architecture amd64 \
+                               --mirror "http://debian-mirror.sakura.ne.jp/debian/" \
+                               --distribution ${{ matrix.os }} \
+                               --basetgz ~/${{ matrix.os }}-base-amd64.tgz \
+                               --allow-untrusted \
+                               --debootstrapopts --keyring=/usr/share/keyrings/debian-archive-keyring.gpg \
+                               --debootstrapopts --include=debian-archive-keyring,ca-certificates
+      - name: Install dep
+        run: |
+          sudo apt-get update
+          sudo apt-get install reprepro pbuilder dh-make -y
+      - name: Build
+        run: |
+          mkdir ~/hooks-${{ matrix.os }}
+          cp D50Update ~/hooks-${{ matrix.os }}/
+          cat << EOF > ~/hooks-${{ matrix.os }}/sources.list
+          deb [trusted=yes] https://deepin-community.github.io/debian-sid-dde-deps-repo ${{ matrix.os }} main
+          deb [trusted=yes] https://deepin-community.github.io/debian-sid-dde-repo ${{ matrix.os }} main
+          deb http://debian-mirror.sakura.ne.jp/debian/ ${{ matrix.os }} main contrib non-free
+          EOF
+          git clone https://github.com/linuxdeepin/${{ matrix.value }} ${{ matrix.os }}-${{ matrix.value }}
+          cd ${{ matrix.os }}-${{ matrix.value }}
+              PROJECT_NAME=$(dpkg-parsechangelog -S Source)
+              tag=$(git describe --tags | cut -f1 -d '-') || echo
+              num=$(git describe --tags | cut -f2 -d '-') || echo
+              # TODO: 需要判断是否增加 rebuild
+              if [ "$num" = "$tag" ]; then num=$(git rev-list --all --count); fi
+              num=`echo $num | awk '{printf("%03d",$0)}'`
+              version=${tag:-0.0.0}+r${num}+g$(git rev-parse --short HEAD)
+              new_dir=${PROJECT_NAME}-$version
+              mkdir $new_dir
+              rsync -a . $new_dir --exclude $new_dir
+              rm -rf $new_dir/.git
+              cd $new_dir
+                  rm -rf $new_dir
+                  dch -M -bv "${version}-1" "update"
+                  if [ -f ./debian/source/format ]; then sed -i 's/native/quilt/g' './debian/source/format'; fi
+                  dh_make --createorig -sy || true
+                  dpkg-source -b ./
+              cd ..
+              sudo DEB_BUILD_OPTIONS=nocheck pbuilder --build \
+                            --basetgz ~/${{ matrix.os }}-base-amd64.tgz \
+                            --allow-untrusted \
+                            --hookdir ~/hooks-${{ matrix.os }} \
+                            --use-network yes \
+                            --logfile `uname -m`-build.log \
+                            --aptcache "" \
+                            --buildresult . ./*.dsc
+          cd ..
+          mkdir ~/deb-${{ matrix.os }}
+          find -name "*.deb" | xargs -I {} cp {} ~/deb-${{ matrix.os }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Debian
+          path: ~/deb-${{ matrix.os }}/*
+  upload:
+    needs: [ build ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: webfactory/ssh-agent@v0.5.4
+        name: Import SSH key
+        with:
+          ssh-private-key: ${{ secrets.BUILD_SSH_PRIVATE_KEY }}
+      - run: git config --global user.email "justforlxz@gmail.com"
+      - run: git config --global user.name "justforlxz"
+      - name: Install dep
+        run: |
+          sudo apt-get install reprepro rsync -y
+      - name: Lock Database
+        shell: bash
+        id: lock
+        run: |
+          for (( ; ; ))
+          do
+            git clone git@github.com:deepin-community/push-sleep.git
+            cd push-sleep
+            git checkout debian
+            if [[ -f "lock" ]];
+            then
+              sleep 10
+              rm -rf push-sleep
+              continue
+            else
+              touch lock
+              git add lock
+              git commit -m "lock debian"
+              for (( ; ; ))
+              do
+                git push && break
+                sleep 10
+              done
+            fi
+            break
+          done
+          echo ::set-output name=exit_code::0
+      - name: Download all packages
+        uses: actions/download-artifact@v3
+        with:
+          name: Debian
+          path: ./deb
+      - name: Upload packages
+        run: |
+          git clone git@github.com:deepin-community/debian-sid-dde-repo.git
+          rm -rf debian-sid-dde-repo/dists
+          rm -rf debian-sid-dde-repo/pool
+          rm -rf debian-sid-dde-repo/db
+          rm -rf debian-sid-dde-repo/logs
+          for deb in `ls deb/*.deb`
+          do
+              filename=$(echo $deb | awk -F/ '{print $2}')
+              packagename=$(echo $filename | awk -F_ '{print $1}')
+              reprepro -b debian-sid-dde-repo remove sid $packagename
+              find debian-sid-dde-repo -name $filename | xargs -I {} rm {}
+          done
+          reprepro -b debian-sid-dde-repo -C main includedeb sid deb/*.deb
+          reprepro -b debian-sid-dde-repo export sid
+          cd debian-sid-dde-repo
+          git add .
+          git commit --amend --no-edit
+          git push -f
+      - name: Unlock
+        if: ${{ always() }} || ${{ steps.lock.outputs.exit_code == 0 }}
+        run: |
+          cd push-sleep
+          git reset HEAD^
+          rm -rf lock
+          git push -f

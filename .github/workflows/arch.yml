@@ -1,0 +1,181 @@
+name: Distribution Builder
+on:
+  push:
+env:
+  USER: root
+  LOGNAME: root
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.value }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
+      - id: matrix
+        name: Matrix
+        shell: bash
+        run: |
+          array=""
+          while IFS= read -r line
+          do
+            if [[ ! -n "$array" ]]
+            then
+              array='"'$line'"'
+            else
+              array=$array", "'"'$line'"'
+            fi
+          done < "repos"
+          echo "::set-output name=value::[$array]"
+  build:
+    container:
+      image: archlinux:latest
+      options: --privileged
+      volumes:
+        - /sys/fs/cgroup:/sys/fs/cgroup
+        - /etc/machine-id:/etc/machine-id
+    needs: [ setup ]
+    continue-on-error: true
+    strategy:
+      matrix:
+        pkg: ${{fromJson(needs.setup.outputs.matrix)}}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        if: ${{ github.event.pull_request.head.sha }}
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/checkout@v3
+        if: ${{ github.event_name == 'push' }}
+      - name: Init
+        run: |
+          pacman-key --init
+          pacman-key --populate
+          pacman-key -r AFAAFC4EF142770966FC4C805987B0C2A80EA669
+          pacman-key --lsign-key AFAAFC4EF142770966FC4C805987B0C2A80EA669
+          echo "[deepin]" >> /etc/pacman.conf
+          echo "SigLevel = Never" >> /etc/pacman.conf
+          echo "Server = https://arch.packages.mkacg.com/" >> /etc/pacman.conf
+          pacman -Sy deepin-keyring devtools-deepin-git base-devel --noconfirm --noprogressbar --needed
+      - name: Compress Source
+        env:
+          PKG: ${{ matrix.pkg }}
+        run: |
+          git clone https://github.com/linuxdeepin/${PKG}
+          cd ${PKG}
+          mkdir ${PKG}-git
+          rsync -a . ${PKG}-git --exclude "${PKG}-git"
+          rm -rf ${PKG}-git/archlinux
+          tar -czf archlinux/source.tar.gz ${PKG}-git
+          echo "deepin_source_name=${PKG}-git" >> archlinux/PKGBUILD
+      - name: Get package version
+        id: version
+        env:
+          sha: ${{ github.event.pull_request.head.sha }}
+          PKG: ${{ matrix.pkg }}
+        run: |
+          if [ "${sha}" != "" ]
+          then
+            echo "::set-output name=VERSION::1.0.0"
+          else
+            cd ${PKG}
+            tag=$(git describe --tags | cut -f1 -d '-') || echo
+            num=$(git describe --tags | cut -f2 -d '-') || echo
+            version=${tag:-0.0.0}+r${num}+g$(git rev-parse --short HEAD)
+            echo "::set-output name=VERSION::${version}"
+          fi
+      - name: Build
+        env:
+          version: ${{ steps.version.outputs.VERSION }}
+          PKG: ${{ matrix.pkg }}
+        run: |
+          cd ${PKG}
+          sed -i "/pkgver=/cpkgver=${version}" archlinux/PKGBUILD
+          sed -i "s|MAKEFLAGS=.*|MAKEFLAGS=-j$(nproc)|" /etc/makepkg.conf
+          useradd -m user
+          mkdir /home/user/${PKG}
+          rsync -a archlinux/* /home/user/${PKG}
+          chown -R user /home/user/${PKG}
+          cd /home/user/${PKG}
+              deepin-x86_64-build -- -U user
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: arch
+          path: /home/user/${{ matrix.pkg }}
+  upload:
+    needs: [ build ]
+    container:
+      image: archlinux:latest
+      options: --privileged
+      volumes:
+        - /sys/fs/cgroup:/sys/fs/cgroup
+        - /etc/machine-id:/etc/machine-id
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Import GPG key
+        id: import_gpg
+        uses: crazy-max/ghaction-import-gpg@v4
+        with:
+          gpg_private_key: ${{ secrets.BUILD_GPG_PRIVATE_KEY }}
+      - uses: webfactory/ssh-agent@v0.5.4
+        name: Import SSH key
+        with:
+          ssh-private-key: ${{ secrets.BUILD_SSH_PRIVATE_KEY }}
+      - run: git config --global user.email "ci@deepin.org"
+      - run: git config --global user.name "deepin-ci"
+      - name: Download all packages
+        uses: actions/download-artifact@v3
+        with:
+          name: arch
+          path: ./arch
+      - name: Lock Database
+        id: lock
+        run: |
+          for (( ; ; ))
+          do
+            rm -rf push-sleep
+            git clone git@github.com:deepin-community/push-sleep.git -b arch
+            cd push-sleep
+            if [[ -f "lock" ]];
+            then
+              sleep 10
+              continue
+            else
+              touch lock
+              git add lock
+              git commit -m "lock arch"
+              git push || continue
+              break
+            fi
+          done
+      - name: Upload packages
+        run: |
+          for i in 1..3;
+          do
+            sleep 10
+            find arch -name "*.zst" | xargs -I {} gpg --detach-sign --default-key builder {}
+            git clone git@github.com:deepin-community/arch-dde-repo.git
+            rm -rf arch-dde-repo/*
+            cp arch/* arch-dde-repo
+            for p in `ls arch/*.zst`;
+            do
+              pkg=$(echo $p | awk -F. '{print $1}' | sed 's/-1//')
+              repo-add -p -R arch-dde-repo/deepin.db.tar.xz $p
+            done
+            cd arch-dde-repo
+            git add .
+            git commit --amend --no-edit
+            git push -f || continue
+            break
+          done
+      - name: Unlock
+        if: ${{ always() }}
+        run: |
+          cd push-sleep
+          if [[ -f lock ]]; then
+            git reset HEAD^
+            rm -rf lock
+            git push -f
+          fi
