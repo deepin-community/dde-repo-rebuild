@@ -1,4 +1,4 @@
-name: Distribution Builder
+name: Deepin Builder
 on:
   push:
 env:

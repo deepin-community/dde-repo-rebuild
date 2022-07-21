@@ -1,4 +1,4 @@
-name: Distribution Builder
+name: Debian Builder
 on:
   push:
 env:

@@ -1,4 +1,4 @@
-name: Distribution Builder
+name: ArchLinux Builder
 on:
   push:
 env:
