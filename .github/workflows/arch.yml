@@ -114,6 +114,11 @@ jobs:
     continue-on-error: true
     runs-on: ubuntu-latest
     steps:
+      - name: Init
+        run: |
+          pacman-key --init
+          pacman-key --populate
+          pacman -Sy base-devel --noconfirm --noprogressbar --needed
       - name: Import GPG key
         id: import_gpg
         uses: crazy-max/ghaction-import-gpg@v4
