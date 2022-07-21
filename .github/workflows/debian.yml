@@ -6,7 +6,6 @@ env:
   LOGNAME: root
 jobs:
   setup:
-    if: ${{ false }}
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.value }}
