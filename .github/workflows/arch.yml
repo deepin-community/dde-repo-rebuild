@@ -47,10 +47,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
       - uses: actions/checkout@v3
         if: ${{ github.event_name == 'push' }}
+      - run: |
+          git clone https://github.com/linuxdeepin/${{ matrix.pkg }}
       - name: Compress Source
         uses: justforlxz/deepin-builder-docker/actions/archlinux/compress@master
         with:
-          workdir: ${{ github.workspace }}
+          workdir: ${{ github.workspace }}/${{ matrix.pkg }}
           repo: ${{ matrix.pkg }}
       - name: Get package version
         id: version
@@ -87,70 +89,3 @@ jobs:
         with:
           name: arch
           path: /home/user/${{ matrix.pkg }}/*.zst
-  upload:
-    needs: [ build ]
-    container:
-      image: ghcr.io/justforlxz/deepin-builder-docker/archlinux:master
-      options: --privileged
-      volumes:
-        - /sys/fs/cgroup:/sys/fs/cgroup
-        - /etc/machine-id:/etc/machine-id
-    continue-on-error: true
-    runs-on: ubuntu-latest
-    steps:
-      - name: Import GPG key
-        id: import_gpg
-        uses: crazy-max/ghaction-import-gpg@v4
-        with:
-          gpg_private_key: ${{ secrets.BUILD_GPG_PRIVATE_KEY }}
-      - uses: webfactory/ssh-agent@v0.5.4
-        name: Import SSH key
-        with:
-          ssh-private-key: ${{ secrets.BUILD_SSH_PRIVATE_KEY }}
-      - run: git config --global user.email "ci@deepin.org"
-      - run: git config --global user.name "deepin-ci"
-      - name: Lock Database
-        id: lock
-        run: |
-          for (( ; ; ))
-          do
-            rm -rf push-sleep
-            git clone git@github.com:deepin-community/push-sleep.git -b arch
-            cd push-sleep
-            if [[ -f "lock" ]];
-            then
-              sleep 10
-              continue
-            else
-              touch lock
-              git add lock
-              git commit -m "lock arch"
-              git push || continue
-              break
-            fi
-          done
-      - name: Download all packages
-        uses: actions/download-artifact@v3
-        with:
-          name: arch
-          path: ./pkgs
-      - name: Upload packages
-        run: |
-          find pkgs -name "*.zst" | xargs -I {} gpg --detach-sign --default-key builder {}
-          git clone git@github.com:deepin-community/arch-dde-repo.git
-          find pkgs -name "*.zst" | xargs -I {} cp {} arch-dde-repo
-          find pkgs -name "*.sig" | xargs -I {} cp {} arch-dde-repo
-          find pkgs -name "*.zst" | xargs -I {} repo-add -p -R arch-dde-repo/deepin.db.tar.xz {}
-          cd arch-dde-repo
-          git add .
-          git commit --amend --no-edit
-          git push -f
-      - name: Unlock
-        if: ${{ always() }}
-        run: |
-          cd push-sleep
-          if [[ -f lock ]]; then
-            git reset HEAD^
-            rm -rf lock
-            git push -f
-          fi
