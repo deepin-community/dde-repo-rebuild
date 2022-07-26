@@ -81,3 +81,12 @@ jobs:
         with:
           name: arch
           path: ${{ github.workspace }}/${{ matrix.pkg }}/.pkgs/*.zst
+      - name: Lock db
+        run: /db lock
+      - name: Commit
+        env:
+          workdir: ${{ github.workspace }}/${{ matrix.pkg }}
+          repo: ${{ matrix.pkg }}
+        run: /commit $workdir $repo
+      - name: Unlock db
+        run: /db unlock
