@@ -52,7 +52,6 @@ jobs:
       - name: Compress Source
         uses: justforlxz/deepin-builder-docker/actions/archlinux/compress@master
         with:
-          workdir: ${{ github.workspace }}/${{ matrix.pkg }}
           repo: ${{ matrix.pkg }}
       - name: Get package version
         id: version
