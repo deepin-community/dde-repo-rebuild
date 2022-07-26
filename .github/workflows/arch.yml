@@ -66,13 +66,13 @@ jobs:
             echo "::set-output name=VERSION::${version}"
           fi
       - name: Compress Source
-        uses: justforlxz/deepin-builder-docker/actions/archlinux/compress@master
-        with:
+        env:
           workdir: /github/workspace/${{ matrix.pkg }}
           repo: ${{ matrix.pkg }}
+        run: /compress $workdir $repo
       - name: Build
-        uses: justforlxz/deepin-builder-docker/actions/archlinux/build@master
-        with:
+        run: /build $workdir $repo $version
+        env:
           workdir: /github/workspace/${{ matrix.pkg }}
           repo: ${{ matrix.pkg }}
           version: ${{ steps.version.outputs.VERSION }}
