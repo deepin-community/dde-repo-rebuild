@@ -49,9 +49,13 @@ jobs:
         if: ${{ github.event_name == 'push' }}
       - run: |
           git clone https://github.com/linuxdeepin/${{ matrix.pkg }}
+      - id: workspace
+        run: |
+          echo "::set-output name=workspace::$GITHUB_WORKSPACE"
       - name: Compress Source
         uses: justforlxz/deepin-builder-docker/actions/archlinux/compress@master
         with:
+          workdir: ${{ steps.workspace.outputs.workspace }}/${{matrix.pkg }}
           repo: ${{ matrix.pkg }}
       - name: Get package version
         id: version
