@@ -71,7 +71,7 @@ jobs:
           workdir: /github/workspace/${{ matrix.pkg }}
           repo: ${{ matrix.pkg }}
       - name: Build
-        uses: justforlxz/deepin-builder-docker/actions/archlinux/compress@master
+        uses: justforlxz/deepin-builder-docker/actions/archlinux/build@master
         with:
           workdir: /github/workspace/${{ matrix.pkg }}
           repo: ${{ matrix.pkg }}
