@@ -49,13 +49,9 @@ jobs:
         if: ${{ github.event_name == 'push' }}
       - run: |
           git clone https://github.com/linuxdeepin/${{ matrix.pkg }}
-      - id: workspace
-        run: |
-          echo "::set-output name=workspace::$GITHUB_WORKSPACE"
       - name: Compress Source
         uses: justforlxz/deepin-builder-docker/actions/archlinux/compress@master
         with:
-          # workdir: ${{ steps.workspace.outputs.workspace }}/${{matrix.pkg }}
           workdir: /github/workspace/${{ matrix.pkg }}
           repo: ${{ matrix.pkg }}
       - name: Get package version
@@ -75,19 +71,11 @@ jobs:
             echo "::set-output name=VERSION::${version}"
           fi
       - name: Build
-        env:
+        uses: justforlxz/deepin-builder-docker/actions/archlinux/compress@master
+        with:
+          workdir: /github/workspace/${{ matrix.pkg }}
+          repo: ${{ matrix.pkg }}
           version: ${{ steps.version.outputs.VERSION }}
-          PKG: ${{ matrix.pkg }}
-        run: |
-          cd ${PKG}
-          sed -i "/pkgver=/cpkgver=${version}" archlinux/PKGBUILD
-          sed -i "s|MAKEFLAGS=.*|MAKEFLAGS=-j$(nproc)|" /etc/makepkg.conf
-          useradd -m user
-          mkdir /home/user/${PKG}
-          rsync -a archlinux/* /home/user/${PKG}
-          chown -R user /home/user/${PKG}
-          cd /home/user/${PKG}
-              deepin-x86_64-build -- -U user
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
