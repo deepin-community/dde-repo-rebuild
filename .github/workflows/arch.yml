@@ -49,11 +49,6 @@ jobs:
         if: ${{ github.event_name == 'push' }}
       - run: |
           git clone https://github.com/linuxdeepin/${{ matrix.pkg }}
-      - name: Compress Source
-        uses: justforlxz/deepin-builder-docker/actions/archlinux/compress@master
-        with:
-          workdir: /github/workspace/${{ matrix.pkg }}
-          repo: ${{ matrix.pkg }}
       - name: Get package version
         id: version
         env:
@@ -70,6 +65,11 @@ jobs:
             version=${tag:-0.0.0}+r${num}+g$(git rev-parse --short HEAD)
             echo "::set-output name=VERSION::${version}"
           fi
+      - name: Compress Source
+        uses: justforlxz/deepin-builder-docker/actions/archlinux/compress@master
+        with:
+          workdir: /github/workspace/${{ matrix.pkg }}
+          repo: ${{ matrix.pkg }}
       - name: Build
         uses: justforlxz/deepin-builder-docker/actions/archlinux/compress@master
         with:
@@ -80,4 +80,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: arch
-          path: /home/user/${{ matrix.pkg }}/*.zst
+          path: ${{ github.workspace }}/${{ matrix.pkg }}/*.zst
