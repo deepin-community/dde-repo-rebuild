@@ -7,7 +7,6 @@ env:
 jobs:
   setup:
     runs-on: ubuntu-latest
-    if: ${{ false }}
     outputs:
       matrix: ${{ steps.matrix.outputs.value }}
     steps:
