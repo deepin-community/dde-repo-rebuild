@@ -6,4 +6,8 @@ scriptpath=$(cd "$(dirname $0)"; pwd)
 
 cat $scriptpath/sources.list > /etc/apt/sources.list
 
+echo "Package: *" >> /etc/apt/preferences
+echo "Pin: origin deepin-community.github.io" >> /etc/apt/preferences
+echo "Pin-Priority: 1000" >> /etc/apt/preferences
+
 apt-get update || true
