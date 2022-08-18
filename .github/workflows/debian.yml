@@ -102,7 +102,10 @@ jobs:
                             --buildresult . ./*.dsc
           cd ..
           mkdir ~/deb-${{ matrix.os }}
-          find -name "*.deb" | xargs -I {} cp {} ~/deb-${{ matrix.os }}
+          find -name "${{ matrix.os }}_${version}-1_amd64.deb" | xargs -I {} cp {} ~/deb-${{ matrix.os }}
+          find -name "${{ matrix.os }}_${version}-1.debian.tar.xz" | xargs -I {} cp {} ~/deb-${{ matrix.os }}
+          find -name "${{ matrix.os }}_${version}-1.dsc" | xargs -I {} cp {} ~/deb-${{ matrix.os }}
+          find -name "${{ matrix.os }}_${version}.orig.tar.xz" | xargs -I {} cp {} ~/deb-${{ matrix.os }}
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
@@ -160,14 +163,8 @@ jobs:
           rm -rf debian-sid-dde-repo/pool
           rm -rf debian-sid-dde-repo/db
           rm -rf debian-sid-dde-repo/logs
-          for deb in `ls deb/*.deb`
-          do
-              filename=$(echo $deb | awk -F/ '{print $2}')
-              packagename=$(echo $filename | awk -F_ '{print $1}')
-              reprepro -b debian-sid-dde-repo remove sid $packagename
-              find debian-sid-dde-repo -name $filename | xargs -I {} rm {}
-          done
           reprepro -b debian-sid-dde-repo -C main includedeb sid deb/*.deb
+          reprepro -b debian-sid-dde-repo -C main includedsc sid deb/*.dsc
           reprepro -b debian-sid-dde-repo export sid
           cd debian-sid-dde-repo
           git add .
