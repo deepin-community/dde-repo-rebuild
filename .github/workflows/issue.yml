@@ -3,6 +3,156 @@ on:
   issue_comment:
     types: [created]
 jobs:
+  rebuild:
+    if: startsWith(github.event.comment.body, '/rebuild') && (github.event.comment.user.login == 'justforlxz')
+    runs-on: ubuntu-latest
+    steps:
+      # assign to someone
+      - name: Get Info
+        id: info
+        uses: actions/github-script@v5
+        if: startsWith(github.event.comment.body, '/rebuild')
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        with:
+          script: |
+            const { COMMENT_BODY } = process.env;
+            // 第一行是 rmeove 哪个仓库的
+            // 第二行开始是包名
+            const result = COMMENT_BODY.replace('/rebuild ', '');
+            const infos = result.split('\n');
+            const repository = infos[0].replace('\r', '');
+            const packages = infos[1].replace('\r', '');
+            console.log(repository);
+            console.log(packages);
+            core.setOutput('repository', repository)
+            core.setOutput('packages', packages)
+      - name: Install
+        run: |
+          sudo apt-get update
+          echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections
+          sudo apt-get update
+          sudo apt-get install -y ca-certificates reprepro git openssh-client
+      - run: git config --global user.email "justforlxz@gmail.com"
+      - run: git config --global user.name "deepin-ci"
+      - uses: webfactory/ssh-agent@v0.5.4
+        name: Import SSH key
+        with:
+          ssh-private-key: ${{ secrets.BUILD_SSH_PRIVATE_KEY }}
+      - name: build (Debian)
+        if: ${{ steps.info.outputs.repository }} == 'Debian'
+        env:
+          packages: ${{ steps.info.outputs.packages }}
+        run: |
+          wget https://raw.githubusercontent.com/justforlxz/deepin-builder-docker/master/debian/compress.sh
+          sudo apt-get update
+          sudo apt-get install -y pbuilder devscripts dh-make
+          chmod +x compress.sh
+          mkdir deb
+          sudo apt-get -y install pbuilder debian-archive-keyring
+          sudo pbuilder create --architecture amd64 \
+                               --mirror "http://ftp.us.debian.org/debian/" \
+                               --distribution sid \
+                               --basetgz ~/sid-base-amd64.tgz \
+                               --allow-untrusted \
+                               --debootstrapopts --keyring=/usr/share/keyrings/debian-archive-keyring.gpg \
+                               --debootstrapopts --include=debian-archive-keyring,ca-certificates
+          mkdir ~/hooks
+          cat << EOF > ~/hooks/D50Update
+          #!/bin/sh
+          #
+          # Runs apt-get update after all other repos have been added.
+          #
+          rm /etc/apt/sources.list
+          echo "deb [trusted=yes] https://deepin-community.github.io/debian-sid-dde-deps-repo sid main" >> /etc/apt/sources.list
+          echo "deb [trusted=yes] https://deepin-community.github.io/debian-sid-dde-repo sid main" >> /etc/apt/sources.list
+          echo "deb https://ftp.jaist.ac.jp/pub/Linux/debian/ sid main contrib non-free" >> /etc/apt/sources.list
+          echo "Package: *" >> /etc/apt/preferences
+          echo "Pin: origin deepin-community.github.io" >> /etc/apt/preferences
+          echo "Pin-Priority: 1000" >> /etc/apt/preferences
+          apt-get update || true
+          apt-get dist-upgrade -y
+          apt-get install devscripts -y
+          apt-get install git -y
+          EOF
+          chmod +x ~/hooks/D50Update
+
+          tmp=(${packages[@]})
+          for p in "${tmp[@]}";
+          do
+            git clone https://github.com/linuxdeepin/$p || continue
+            cd $p
+              tag=$(git describe --tags | cut -f1 -d '-') || echo
+              num=$(git describe --tags | cut -f2 -d '-') || echo
+              version=${tag:-0.0.0}+r${num}+g$(git rev-parse --short HEAD)
+              PROJECT_NAME=$(dpkg-parsechangelog -S Source)
+              new_dir=$PROJECT_NAME-$version
+              mkdir $new_dir
+              rsync -a . $new_dir --exclude $new_dir
+              cd $new_dir
+                  rm -rf $new_dir
+                  rm -rf .git
+                  dch -M -bv "$version-1" "update"
+                  if [ -f ./debian/source/format ]; then sed -i 's/native/quilt/g' './debian/source/format'; fi
+                  dh_make --createorig -sy || true
+                  dpkg-source -b ./
+              cd ..
+              sudo pbuilder --build \
+                            --basetgz ~/sid-base-amd64.tgz \
+                            --allow-untrusted \
+                            --hookdir ~/hooks \
+                            --use-network yes \
+                            --logfile `uname -m`-build.log \
+                            --aptcache "" \
+                            --buildresult . ./*.dsc
+              cp *.deb ../deb
+            cd ..
+          done
+      - name: lock
+        if: always()
+        env:
+          repo: ${{ steps.info.outputs.repository }}
+        run: |
+          for (( ; ; ))
+          do
+            cd $GITHUB_WORKSPACE
+            rm -rf push-sleep
+            git clone git@github.com:deepin-community/push-sleep.git -b debian
+            cd push-sleep
+            if [[ -f "lock" ]];
+            then
+              sleep 10
+              continue
+            else
+              touch lock
+              git add lock
+              git commit -m "lock debian"
+              git push || continue
+              break
+            fi
+          done
+      - name: rebuild
+        env:
+          repo: ${{ steps.info.outputs.repository }}
+          packages: ${{ steps.info.outputs.packages }}
+        run: |
+          git clone git@github.com:deepin-community/$repo
+          cd $repo
+          reprepro -C main includedeb sid ../deb/*.deb
+          git add .
+          git commit --amend --no-edit
+          git push -f
+      - name: unlock
+        if: always()
+        env:
+          repo: ${{ steps.info.outputs.repository }}
+        run: |
+          cd push-sleep
+          if [[ -f lock ]]; then
+            git reset HEAD^
+            rm -rf lock
+            git push -f
+          fi
   remove:
     if: startsWith(github.event.comment.body, '/remove') && (github.event.comment.user.login == 'justforlxz')
     runs-on: ubuntu-latest
@@ -69,7 +219,7 @@ jobs:
         run: |
           git clone git@github.com:deepin-community/$repo
           cd $repo
-          reprepro removesrcs sid $packages
+          reprepro -C main includedeb sid ../deb/*.deb
           git add .
           git commit --amend --no-edit
           git push -f
