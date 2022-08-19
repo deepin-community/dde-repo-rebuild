@@ -1,0 +1,86 @@
+name: ChatOpts
+on:
+  issue_comment:
+    types: [created]
+jobs:
+  remove:
+    if: startsWith(github.event.comment.body, '/remove') && (github.event.comment.user.login == 'justforlxz')
+    runs-on: ubuntu-latest
+    steps:
+      # assign to someone
+      - name: Get Info
+        id: info
+        uses: actions/github-script@v5
+        if: startsWith(github.event.comment.body, '/remove')
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        with:
+          script: |
+            const { COMMENT_BODY } = process.env;
+            // 第一行是 rmeove 哪个仓库的
+            // 第二行开始是包名
+            const result = COMMENT_BODY.replace('/remove ', '');
+            const infos = result.split('\n');
+            const repository = infos[0].replace('\r', '');
+            const packages = infos[1].replace('\r', '');
+            console.log(repository);
+            console.log(packages);
+            core.setOutput('repository', repository)
+            core.setOutput('packages', packages)
+      - name: Install
+        run: |
+          sudo apt-get update
+          echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections
+          sudo apt-get update
+          sudo apt-get install -y ca-certificates reprepro git openssh-client
+      - run: git config --global user.email "justforlxz@gmail.com"
+      - run: git config --global user.name "deepin-ci"
+      - uses: webfactory/ssh-agent@v0.5.4
+        name: Import SSH key
+        with:
+          ssh-private-key: ${{ secrets.BUILD_SSH_PRIVATE_KEY }}
+      - name: lock
+        if: always()
+        env:
+          repo: ${{ steps.info.outputs.repository }}
+        run: |
+          for (( ; ; ))
+          do
+            cd $GITHUB_WORKSPACE
+            rm -rf push-sleep
+            git clone git@github.com:deepin-community/push-sleep.git -b debian
+            cd push-sleep
+            if [[ -f "lock" ]];
+            then
+              sleep 10
+              continue
+            else
+              touch lock
+              git add lock
+              git commit -m "lock debian"
+              git push || continue
+              break
+            fi
+          done
+      - name: remove
+        env:
+          repo: ${{ steps.info.outputs.repository }}
+          packages: ${{ steps.info.outputs.packages }}
+        run: |
+          git clone git@github.com:deepin-community/$repo
+          cd $repo
+          reprepro removesrcs sid $packages
+          git add .
+          git commit --amend --no-edit
+          git push -f
+      - name: unlock
+        if: always()
+        env:
+          repo: ${{ steps.info.outputs.repository }}
+        run: |
+          cd push-sleep
+          if [[ -f lock ]]; then
+            git reset HEAD^
+            rm -rf lock
+            git push -f
+          fi
