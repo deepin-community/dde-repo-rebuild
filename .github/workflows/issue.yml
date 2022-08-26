@@ -278,11 +278,20 @@ jobs:
         env:
           repo: ${{ steps.info.outputs.repository }}
         run: |
+          tmp="debian"
+          if [[ $repo == "deepin-dde-repo" || $repo == "deepin-dde-deps-repo" ]];
+          then
+            tmp="deepin"
+          elif [[ $repo == "debian-sid-dde-repo" || $repo == "debian-sid-dde-deps-repo" ]];
+          then
+            tmp="debian"
+          fi
+
           for (( ; ; ))
           do
             cd $GITHUB_WORKSPACE
             rm -rf push-sleep
-            git clone git@github.com:deepin-community/push-sleep.git -b debian
+            git clone git@github.com:deepin-community/push-sleep.git -b $tmp
             cd push-sleep
             if [[ -f "lock" ]];
             then
@@ -291,7 +300,7 @@ jobs:
             else
               touch lock
               git add lock
-              git commit -m "lock debian"
+              git commit -m "lock $tmp"
               git push || continue
               break
             fi
